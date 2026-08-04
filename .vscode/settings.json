@@ -1,0 +1,8 @@
+{
+  "clangd.path": "C:/Espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--compile-commands-dir=${workspaceFolder}/build",
+    "--query-driver=C:/Espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc.exe"
+  ]
+}
