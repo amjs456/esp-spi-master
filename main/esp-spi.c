@@ -88,7 +88,7 @@ static int spi_init() {
     return 0;
 }
 
-int dma_buf_init(){
+static int dma_buf_init(){
     for(int i = 0; i < QUEUE_SIZE; i++) {
         memset(&trans[i], 0, sizeof(trans[i]));
         trans[i].length = BUF_SIZE * 8;
