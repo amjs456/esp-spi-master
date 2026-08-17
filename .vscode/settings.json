@@ -4,5 +4,20 @@
     "--background-index",
     "--compile-commands-dir=${workspaceFolder}/build",
     "--query-driver=C:/Espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc.exe"
-  ]
+  ],
+  "terminal.integrated.profiles.windows": {
+    "ESP-IDF PowerShell": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "args": [
+        "-NoExit",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-NoProfile",
+        "-Command",
+        "& {. 'C:\\Espressif\\tools\\Microsoft.v6.0.1.PowerShell_profile.ps1'}"
+        ]
+      }
+    },
+
+    "terminal.integrated.defaultProfile.windows": "ESP-IDF PowerShell"
 }
