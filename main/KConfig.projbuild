@@ -1,0 +1,42 @@
+menu "ESP-SPI-MASTER settings"
+    config SPI_MOSI_GPIO
+    int "SPI MOSI GPIO"
+    range 0 39
+    default 13
+
+    config SPI_MISO_GPIO
+    int "SPI MISO GPIO"
+    range 0 39
+    default 12
+
+    config SPI_SCLK_GPIO
+    int "SPI SCLK GPIO"
+    range 0 39
+    default 14
+
+    config SPI_CS_GPIO
+    int "SPI CS GPIO"
+    range 0 39
+    default 15
+
+    config MASTER_TO_SLAVE_IRQ_GPIO
+    int "MASTER TO SLAVE IRQ GPIO"
+    range 0 39
+    default 4
+
+    config SLAVE_TO_MASTER_IRQ_GPIO
+    int "SLAVE TO MASTER IRQ GPIO"
+    range 0 39
+    default 2
+
+    config QUEUE_SIZE
+    int "QUEUE SIZE"
+    range 1 10
+    default 3
+
+    config BUF_SIZE
+    int "BUFFER SIZE"
+    range 2 4096
+    default 64
+
+endmenu

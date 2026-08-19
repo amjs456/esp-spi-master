@@ -26,28 +26,18 @@
 
 static const char *TAG = "ESP-SPI-MASTER";
 
-#define MISO_IO_NUM 12
-#define MOSI_IO_NUM 13
-#define SCLK_IO_NUM 14
-#define CS_IO_NUM 15
-
-#define MASTER_TO_SLAVE_IRQ_GPIO_NUM GPIO_NUM_4
-#define SLAVE_TO_MASTER_IRQ_GPIO_NUM GPIO_NUM_2
-
-#define QUEUE_SIZE 3
-#define BUF_SIZE 64
 
 QueueHandle_t input_buf_queue;
 
-DMA_ATTR static uint8_t tx_buf[QUEUE_SIZE][BUF_SIZE];
-DMA_ATTR static uint8_t rx_buf[QUEUE_SIZE][BUF_SIZE];
-static spi_transaction_t trans[QUEUE_SIZE];
+DMA_ATTR static uint8_t tx_buf[CONFIG_QUEUE_SIZE][CONFIG_BUF_SIZE];
+DMA_ATTR static uint8_t rx_buf[CONFIG_QUEUE_SIZE][CONFIG_BUF_SIZE];
+static spi_transaction_t trans[CONFIG_QUEUE_SIZE];
 
 static spi_device_handle_t dev_handle;
 static spi_bus_config_t bus_conf  = {
-    .mosi_io_num = MOSI_IO_NUM,
-    .miso_io_num = MISO_IO_NUM,
-    .sclk_io_num = SCLK_IO_NUM,
+    .mosi_io_num = CONFIG_SPI_MOSI_GPIO,
+    .miso_io_num = CONFIG_SPI_MISO_GPIO,
+    .sclk_io_num = CONFIG_SPI_SCLK_GPIO,
     .quadwp_io_num = -1,
     .quadhd_io_num = -1,
 };
@@ -55,7 +45,7 @@ static spi_bus_config_t bus_conf  = {
 static spi_device_interface_config_t dev_if_conf = {
     .mode = 0,
     .clock_speed_hz = 1 * 1000 * 1000,
-    .spics_io_num = CS_IO_NUM,
+    .spics_io_num = CONFIG_SPI_CS_GPIO,
     .queue_size = 1,
 };
 
@@ -89,9 +79,9 @@ static int spi_init() {
 }
 
 static int dma_buf_init(){
-    for(int i = 0; i < QUEUE_SIZE; i++) {
+    for(int i = 0; i < CONFIG_QUEUE_SIZE; i++) {
         memset(&trans[i], 0, sizeof(trans[i]));
-        trans[i].length = BUF_SIZE * 8;
+        trans[i].length = CONFIG_BUF_SIZE * 8;
         trans[i].tx_buffer = tx_buf[i];
         trans[i].rx_buffer = rx_buf[i];
     }
@@ -101,7 +91,7 @@ static int dma_buf_init(){
 static void stdin_fgets_task(void *arg) {
     QueueHandle_t *input_buf_queue = (QueueHandle_t *)arg;
     char input_buf[64];
-    gpio_set_level(MASTER_TO_SLAVE_IRQ_GPIO_NUM, irq_output_level);
+    gpio_set_level(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, irq_output_level);
     while(1){
         if(fgets(input_buf, sizeof(input_buf), stdin) == NULL){
             clearerr(stdin);
@@ -109,11 +99,11 @@ static void stdin_fgets_task(void *arg) {
         }
         input_buf[strcspn(input_buf, "\r\n")] = '\0';
         irq_output_level = 0;
-        gpio_set_level(MASTER_TO_SLAVE_IRQ_GPIO_NUM, irq_output_level);
+        gpio_set_level(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, irq_output_level);
         xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
         xQueueSendToBack(*input_buf_queue, input_buf, portMAX_DELAY);
         irq_output_level = 1;
-        gpio_set_level(MASTER_TO_SLAVE_IRQ_GPIO_NUM, irq_output_level);
+        gpio_set_level(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, irq_output_level);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
@@ -130,7 +120,7 @@ static void IRAM_ATTR isr_handler(void *arg) {
 
 static int gpio_irq_init() {
     gpio_config_t gpio_slave_to_master_irq_conf = {
-        .pin_bit_mask = (1ULL << SLAVE_TO_MASTER_IRQ_GPIO_NUM),
+        .pin_bit_mask = (1ULL << CONFIG_SLAVE_TO_MASTER_IRQ_GPIO),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -139,11 +129,11 @@ static int gpio_irq_init() {
 
     gpio_config(&gpio_slave_to_master_irq_conf);
     gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
-    gpio_isr_handler_add(SLAVE_TO_MASTER_IRQ_GPIO_NUM, isr_handler, NULL);
+    gpio_isr_handler_add(CONFIG_SLAVE_TO_MASTER_IRQ_GPIO, isr_handler, NULL);
 
 
     const gpio_config_t gpio_master_to_slave_irq_conf = {
-    .pin_bit_mask = (1ULL << MASTER_TO_SLAVE_IRQ_GPIO_NUM),
+    .pin_bit_mask = (1ULL << CONFIG_MASTER_TO_SLAVE_IRQ_GPIO),
     .mode = GPIO_MODE_OUTPUT,
     .pull_up_en = GPIO_PULLUP_DISABLE,
     .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -151,7 +141,7 @@ static int gpio_irq_init() {
 };
 
     gpio_config(&gpio_master_to_slave_irq_conf);
-    gpio_set_direction(MASTER_TO_SLAVE_IRQ_GPIO_NUM, GPIO_MODE_OUTPUT);
+    gpio_set_direction(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, GPIO_MODE_OUTPUT);
 
     return 0;
 }
@@ -162,7 +152,7 @@ static void create_dummy_task(void *arg) {
     char dummy[64] = "\0";
     while(1){
         xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
-        if(gpio_get_level(SLAVE_TO_MASTER_IRQ_GPIO_NUM) == 0){
+        if(gpio_get_level(CONFIG_SLAVE_TO_MASTER_IRQ_GPIO) == 0){
             xQueueSendToBack(*input_buf_queue, dummy, portMAX_DELAY);
         }
     }
@@ -175,7 +165,7 @@ static void transaction_task(void *arg){
     char data[64];
     int trans_index = 0;
     spi_transaction_t *done;
-    gpio_set_level(MASTER_TO_SLAVE_IRQ_GPIO_NUM, irq_output_level);
+    gpio_set_level(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, irq_output_level);
     while(1) {
         result = xQueueReceive(*input_buf_queue, &data, portMAX_DELAY);
         if(result != pdPASS){
@@ -185,12 +175,12 @@ static void transaction_task(void *arg){
         memcpy(tx_buf[trans_index], data, sizeof(data));
         
         spi_device_queue_trans(dev_handle, &trans[trans_index], portMAX_DELAY);
-        trans_index = (trans_index + 1) % QUEUE_SIZE;
+        trans_index = (trans_index + 1) % CONFIG_QUEUE_SIZE;
         irq_output_level = 0;
-        gpio_set_level(MASTER_TO_SLAVE_IRQ_GPIO_NUM, irq_output_level);
+        gpio_set_level(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, irq_output_level);
         spi_device_get_trans_result(dev_handle, &done, portMAX_DELAY);
         irq_output_level = 1;
-        gpio_set_level(MASTER_TO_SLAVE_IRQ_GPIO_NUM, irq_output_level);
+        gpio_set_level(CONFIG_MASTER_TO_SLAVE_IRQ_GPIO, irq_output_level);
         printf("%s\n", (char *)done->rx_buffer);
     }
     
